@@ -1029,6 +1029,12 @@ static int flecs_script_dep_node_impl(
         break;
     }
     case EcsAstAssign:
+        if (((ecs_script_assign_t*)node)->index &&
+            flecs_script_dep_expr(ctx,
+            ((ecs_script_assign_t*)node)->index, node))
+        {
+            return -1;
+        }
         if (flecs_script_dep_expr(ctx,
             ((ecs_script_assign_t*)node)->expr, node))
         {

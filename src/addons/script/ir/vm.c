@@ -1140,7 +1140,24 @@ static int flecs_ir_assign(
         src = tmp;
     }
 
-    int result = flecs_script_assign_value(v, node, src);
+    int32_t index = 0;
+    if (node->index) {
+        const ecs_type_info_t *index_ti = ecs_get_type_info(
+            v->world, ecs_id(ecs_i32_t));
+        if (flecs_ir_value_to(vm, flecs_ir_reg(vm, op->b),
+            ecs_id(ecs_i32_t), &index, index_ti))
+        {
+            flecs_ir_expr_error(vm, node->index,
+                "failed to evaluate index for assignment to '%s'",
+                node->name);
+            if (tmp) {
+                ecs_ptr_free_w_type_info(v->world, ti, tmp);
+            }
+            return -1;
+        }
+    }
+
+    int result = flecs_script_assign_value(v, node, index, src);
     if (tmp) {
         ecs_ptr_free_w_type_info(v->world, ti, tmp);
     }

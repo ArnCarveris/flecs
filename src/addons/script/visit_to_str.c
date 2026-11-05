@@ -265,11 +265,15 @@ static void flecs_script_stmt_to_str(
                 stmt->name,
                 stmt->type_is_vector ? "[]" : "");
         } else if (stmt->type) {
-            flecs_scriptbuf_append(v, "%s : %s%s%s = ",
+            flecs_scriptbuf_append(v, "%s : %s%s%s",
                 stmt->name,
                 stmt->type_is_template ? "template " : "",
                 stmt->type,
                 stmt->type_is_vector ? "[]" : "");
+            if (stmt->type_array_count) {
+                flecs_scriptbuf_append(v, "[%d]", stmt->type_array_count);
+            }
+            flecs_scriptbuf_append(v, " = ");
         } else {
             flecs_scriptbuf_append(v, "%s = ",
                 stmt->name);
@@ -379,7 +383,13 @@ static void flecs_script_stmt_to_str(
     }
     case EcsAstAssign: {
         ecs_script_assign_t *stmt = (ecs_script_assign_t*)node;
-        flecs_scriptbuf_append(v, "%s = ", stmt->name);
+        flecs_scriptbuf_append(v, "%s", stmt->name);
+        if (stmt->index) {
+            flecs_scriptbuf_appendstr(v, "[");
+            flecs_expr_to_str(v, stmt->index);
+            flecs_scriptbuf_appendstr(v, "]");
+        }
+        flecs_scriptbuf_appendstr(v, " = ");
         flecs_expr_to_str(v, stmt->expr);
         break;
     }

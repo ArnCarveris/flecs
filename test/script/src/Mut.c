@@ -2105,3 +2105,155 @@ void Mut_typed_mut_w_semicolon(void) {
 
     ecs_fini(world);
 }
+
+void Mut_typed_vector_var(void) {
+    ecs_world_t *world = ecs_init();
+
+    const char *expr =
+    HEAD "export const v: f32[] = [1, 2, 3]";
+
+    test_assert(ecs_script_run_w_desc(world, NULL, expr, &ir_desc, NULL) == 0);
+
+    ecs_entity_t e = ecs_lookup(world, "v");
+    test_assert(e != 0);
+    ecs_value_t v = ecs_const_var_get(world, e);
+    const EcsVector *vt = ecs_get(world, v.type, EcsVector);
+    test_assert(vt != NULL);
+    test_uint(vt->type, ecs_id(ecs_f32_t));
+    ecs_vec_t *vec = v.ptr;
+    test_int(ecs_vec_count(vec), 3);
+    test_flt(ecs_vec_first_t(vec, ecs_f32_t)[2], 3);
+
+    ecs_fini(world);
+}
+
+void Mut_typed_array_var(void) {
+    ecs_world_t *world = ecs_init();
+
+    const char *expr =
+    HEAD "export mut v: i32[3] = [10, 20, 30]";
+
+    test_assert(ecs_script_run_w_desc(world, NULL, expr, &ir_desc, NULL) == 0);
+
+    ecs_entity_t e = ecs_lookup(world, "v");
+    test_assert(e != 0);
+    ecs_value_t v = ecs_mut_var_get(world, e);
+    const EcsArray *at = ecs_get(world, v.type, EcsArray);
+    test_assert(at != NULL);
+    test_uint(at->type, ecs_id(ecs_i32_t));
+    test_int(at->count, 3);
+    const int32_t *ptr = v.ptr;
+    test_int(ptr[0], 10);
+    test_int(ptr[1], 20);
+    test_int(ptr[2], 30);
+
+    ecs_fini(world);
+}
+
+void Mut_typed_array_var_empty_initializer(void) {
+    ecs_world_t *world = ecs_init();
+
+    const char *expr =
+    HEAD "export mut v: f32[6] = {}";
+
+    test_assert(ecs_script_run_w_desc(world, NULL, expr, &ir_desc, NULL) == 0);
+
+    ecs_entity_t e = ecs_lookup(world, "v");
+    test_assert(e != 0);
+    ecs_value_t v = ecs_mut_var_get(world, e);
+    const EcsArray *at = ecs_get(world, v.type, EcsArray);
+    test_assert(at != NULL);
+    test_int(at->count, 6);
+    const ecs_f32_t *ptr = v.ptr;
+    for (int i = 0; i < 6; i ++) {
+        test_flt(ptr[i], 0);
+    }
+
+    ecs_fini(world);
+}
+
+void Mut_typed_array_var_invalid_size(void) {
+    ecs_world_t *world = ecs_init();
+
+    ecs_log_set_level(-4);
+    test_assert(ecs_script_run_w_desc(world, NULL,
+        "export mut v: f32[0] = {}", &ir_desc, NULL) != 0);
+    test_assert(ecs_script_run_w_desc(world, NULL,
+        "export mut v: f32[1.5] = {}", &ir_desc, NULL) != 0);
+    test_assert(ecs_script_run_w_desc(world, NULL,
+        "export mut v: f32[2 = {}", &ir_desc, NULL) != 0);
+
+    ecs_fini(world);
+}
+
+void Mut_assign_array_element(void) {
+    ecs_world_t *world = ecs_init();
+
+    ecs_entity_t s = ecs_script(world, {
+        .code = HEAD "export mut v: f32[4] = {}"
+            LINE "export mut w: i32[2] = [1, 2]"
+            LINE "async {"
+            LINE "  for i in 0..4 {"
+            LINE "    v[i] = i * 2"
+            LINE "  }"
+            LINE "  w[1] = 7"
+            LINE "}",
+        .ir = ir_enabled
+    });
+    test_assert(s != 0);
+    const EcsScript *comp = ecs_get(world, s, EcsScript);
+    test_assert(comp != NULL);
+    test_assert(comp->error == NULL);
+
+    ecs_script_tasks_progress(world);
+
+    ecs_value_t v = ecs_mut_var_get(world, ecs_lookup(world, "v"));
+    const ecs_f32_t *vp = v.ptr;
+    test_flt(vp[0], 0);
+    test_flt(vp[1], 2);
+    test_flt(vp[2], 4);
+    test_flt(vp[3], 6);
+
+    ecs_value_t w = ecs_mut_var_get(world, ecs_lookup(world, "w"));
+    const int32_t *wp = w.ptr;
+    test_int(wp[0], 1);
+    test_int(wp[1], 7);
+
+    ecs_fini(world);
+}
+
+void Mut_assign_array_element_out_of_bounds(void) {
+    ecs_world_t *world = ecs_init();
+
+    ecs_log_set_level(-4);
+    ecs_entity_t s = ecs_script(world, {
+        .code = HEAD "export mut v: i32[2] = [1, 2]"
+            LINE "async {"
+            LINE "  v[2] = 7"
+            LINE "}",
+        .ir = ir_enabled
+    });
+    test_assert(s != 0);
+
+    ecs_script_tasks_progress(world);
+
+    ecs_value_t v = ecs_mut_var_get(world, ecs_lookup(world, "v"));
+    const int32_t *vp = v.ptr;
+    test_int(vp[0], 1);
+    test_int(vp[1], 2);
+
+    ecs_fini(world);
+}
+
+void Mut_assign_element_of_non_array(void) {
+    ecs_world_t *world = ecs_init();
+
+    ecs_log_set_level(-4);
+    test_assert(ecs_script_run_w_desc(world, NULL,
+        HEAD "export mut v: i32 = 0"
+        LINE "async {"
+        LINE "  v[0] = 7"
+        LINE "}", &ir_desc, NULL) != 0);
+
+    ecs_fini(world);
+}

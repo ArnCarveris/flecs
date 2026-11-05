@@ -1058,7 +1058,9 @@ static void flecs_irc_compile_assign(
 {
     int32_t begin = flecs_irc_expr_begin(c, node);
     int32_t value = flecs_irc_compile_tmp(c, node->expr);
-    flecs_irc_emit(c, EcsIrAssign, value, 0, 0, node);
+    int32_t index = node->index
+        ? flecs_irc_compile_tmp(c, node->index) : 0;
+    flecs_irc_emit(c, EcsIrAssign, value, index, 0, node);
     flecs_irc_expr_end(c, begin, true);
 }
 

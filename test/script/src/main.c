@@ -1645,6 +1645,13 @@ void Mut_set_struct_from_stage(void);
 void Mut_modified_from_stage(void);
 void Mut_typed_mut_single_line(void);
 void Mut_typed_mut_w_semicolon(void);
+void Mut_typed_vector_var(void);
+void Mut_typed_array_var(void);
+void Mut_typed_array_var_empty_initializer(void);
+void Mut_typed_array_var_invalid_size(void);
+void Mut_assign_array_element(void);
+void Mut_assign_array_element_out_of_bounds(void);
+void Mut_assign_element_of_non_array(void);
 
 // Testsuite 'Error'
 void Error_setup(void);
@@ -10708,6 +10715,34 @@ bake_test_case Mut_testcases[] = {
     {
         "typed_mut_w_semicolon",
         Mut_typed_mut_w_semicolon
+    },
+    {
+        "typed_vector_var",
+        Mut_typed_vector_var
+    },
+    {
+        "typed_array_var",
+        Mut_typed_array_var
+    },
+    {
+        "typed_array_var_empty_initializer",
+        Mut_typed_array_var_empty_initializer
+    },
+    {
+        "typed_array_var_invalid_size",
+        Mut_typed_array_var_invalid_size
+    },
+    {
+        "assign_array_element",
+        Mut_assign_array_element
+    },
+    {
+        "assign_array_element_out_of_bounds",
+        Mut_assign_array_element_out_of_bounds
+    },
+    {
+        "assign_element_of_non_array",
+        Mut_assign_element_of_non_array
     }
 };
 
@@ -21093,7 +21128,7 @@ static bake_test_suite suites[] = {
         "Mut",
         Mut_setup,
         NULL,
-        75,
+        82,
         Mut_testcases,
         1,
         Mut_params

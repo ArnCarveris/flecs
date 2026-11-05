@@ -1398,6 +1398,28 @@ static int flecs_script_type_annot(
     return result;
 }
 
+/* Wrap the declared element type of 'x: T[]' or 'x: T[N]' in a vector or
+ * fixed size array type. */
+static ecs_entity_t flecs_script_type_var_collection(
+    const ecs_script_var_node_t *node,
+    ecs_entity_t type,
+    ecs_world_t *world)
+{
+    if (!type) {
+        return 0;
+    }
+
+    if (node->type_array_count) {
+        return flecs_script_array_type(world, type, node->type_array_count);
+    }
+
+    if (node->type_is_vector) {
+        return flecs_script_vector_type(world, type);
+    }
+
+    return type;
+}
+
 static int flecs_script_type_const(
     ecs_script_type_visitor_t *t,
     ecs_script_var_node_t *node)
@@ -1426,6 +1448,9 @@ static int flecs_script_type_const(
             return -1;
         }
     }
+
+    expected_type = flecs_script_type_var_collection(
+        node, expected_type, t->v->world);
 
     ecs_entity_t type = expected_type;
     int32_t prev_unresolved = ecs_vec_count(
@@ -1589,9 +1614,11 @@ static int flecs_script_type_template_var(
         }
     }
 
-    if (node->type_is_vector) {
+    if (node->type_is_template && node->type_is_vector) {
         type = flecs_script_vector_type(
             t->v->world, ecs_id(ecs_script_template_ref_t));
+    } else {
+        type = flecs_script_type_var_collection(node, type, t->v->world);
     }
 
     if (type && !ecs_get_type_info(t->v->world, type)) {
@@ -2434,6 +2461,45 @@ static int flecs_script_type_assign(
         : node->parent ? m->type : var->value.type;
     int32_t sp = node->global ? -1
         : node->parent ? template->parent_sp : var->sp;
+
+    node->array_type = 0;
+    node->elem_size = 0;
+    node->elem_count = 0;
+    if (node->index) {
+        const EcsArray *a = ecs_get(v->world, var_type, EcsArray);
+        if (!a) {
+            flecs_script_eval_error(v, node,
+                "cannot assign to element of '%s': variable is not a "
+                "fixed size array", node->name);
+            return -1;
+        }
+
+        ecs_entity_t index_type = ecs_id(ecs_i32_t);
+        int index_result = flecs_script_type_check_expr(
+            t, &node->index, &index_type);
+        if (index_result) {
+            if (index_result == 1) {
+                node->node.skip = true;
+                return 0;
+            }
+
+            return -1;
+        }
+
+        if (!flecs_script_type_is_number(v->world, index_type)) {
+            flecs_script_eval_error(v, node,
+                "index for '%s' must be a number", node->name);
+            return -1;
+        }
+
+        const ecs_type_info_t *elem_ti = ecs_get_type_info(v->world, a->type);
+        ecs_assert(elem_ti != NULL, ECS_INTERNAL_ERROR, NULL);
+        node->array_type = var_type;
+        node->elem_size = elem_ti->size;
+        node->elem_count = a->count;
+        var_type = a->type;
+    }
+
     ecs_entity_t type = var_type;
     int result = flecs_script_type_check_expr(t, &node->expr, &type);
     if (result) {

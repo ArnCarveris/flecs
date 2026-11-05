@@ -879,10 +879,16 @@ static int flecs_expr_initializer_collection_check(
     ecs_entity_t init_type)
 {
     ecs_world_t *world = script->world;
+
+    /* An empty object literal '{}' zero-initializes a collection */
+    bool is_empty = !node->is_collection && !ecs_vec_count(&node->elements);
+
     if (cur) {
         bool is_collection = ecs_meta_is_collection(cur) ||
             ecs_meta_is_map(cur);
-        if (is_collection != node->is_collection) {
+        if (is_collection != node->is_collection &&
+            !(is_collection && is_empty))
+        {
             flecs_expr_visit_error(script, node, node->is_collection
                 ? "invalid collection literal for non-collection type '%s'"
                 : "invalid object literal for collection type '%s'",
@@ -913,7 +919,8 @@ static int flecs_expr_initializer_collection_check(
             }
 
             if (!node->is_collection && kind != EcsStructType &&
-                kind != EcsValueType)
+                kind != EcsValueType && !(is_empty &&
+                    (kind == EcsArrayType || kind == EcsVectorType)))
             {
                 flecs_expr_visit_error(script, node,
                     "invalid object literal for type '%s'",

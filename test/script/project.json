@@ -1691,7 +1691,14 @@
                 "set_struct_from_stage",
                 "modified_from_stage",
                 "typed_mut_single_line",
-                "typed_mut_w_semicolon"
+                "typed_mut_w_semicolon",
+                "typed_vector_var",
+                "typed_array_var",
+                "typed_array_var_empty_initializer",
+                "typed_array_var_invalid_size",
+                "assign_array_element",
+                "assign_array_element_out_of_bounds",
+                "assign_element_of_non_array"
             ]
         }, {
             "id": "Error",

@@ -2157,16 +2157,31 @@ int flecs_script_eval_function(
 int flecs_script_assign_value(
     ecs_script_eval_visitor_t *v,
     ecs_script_assign_t *node,
+    int32_t index,
     const void *src)
 {
     ecs_world_t *world = v->world;
+    ecs_entity_t var_type = node->eval_type;
+    int32_t elem_offset = 0;
+    if (node->index) {
+        if (index < 0 || index >= node->elem_count) {
+            flecs_script_eval_error(v, node,
+                "index %d out of bounds for '%s' (size %d)",
+                index, node->name, node->elem_count);
+            return -1;
+        }
+
+        var_type = node->array_type;
+        elem_offset = index * node->elem_size;
+    }
+
     if (node->global) {
         EcsScriptMutVar *mv = NULL;
         if (ecs_is_alive(world, node->global)) {
             mv = ecs_get_mut(world, node->global, EcsScriptMutVar);
         }
 
-        if (!mv || mv->value.type != node->eval_type) {
+        if (!mv || mv->value.type != var_type) {
             flecs_script_eval_error(v, node,
                 "cannot assign to '%s': mut variable is no longer alive",
                 node->name);
@@ -2175,7 +2190,8 @@ int flecs_script_assign_value(
 
         const ecs_type_info_t *ti = ecs_get_type_info(world, node->eval_type);
         ecs_assert(ti != NULL, ECS_INTERNAL_ERROR, NULL);
-        ecs_ptr_copy_w_type_info(world, ti, mv->value.ptr, src);
+        ecs_ptr_copy_w_type_info(world, ti,
+            ECS_OFFSET(mv->value.ptr, elem_offset), src);
         ecs_modified(world, node->global, EcsScriptMutVar);
         return 0;
     }
@@ -2206,7 +2222,8 @@ int flecs_script_assign_value(
     ecs_assert(cur != NULL, ECS_INTERNAL_ERROR, NULL);
     void *copy = ecs_ptr_new_w_type_info(world, comp_ti);
     ecs_ptr_copy_w_type_info(world, comp_ti, copy, cur);
-    ecs_ptr_copy_w_type_info(world, ti, ECS_OFFSET(copy, node->offset), src);
+    ecs_ptr_copy_w_type_info(world, ti,
+        ECS_OFFSET(copy, node->offset + elem_offset), src);
     ecs_set_id(world, instance, component,
         flecs_ito(size_t, comp_ti->size), copy);
     ecs_ptr_free_w_type_info(world, comp_ti, copy);
@@ -2228,13 +2245,19 @@ static FLECS_SCRIPT_NOINLINE int flecs_script_eval_assign(
     flecs_type_info_ctor(value.ptr, 1, ti);
 
     int result = 0;
-    if (flecs_script_eval_expr(v, &node->expr, &value)) {
+    int32_t index = 0;
+    ecs_value_t index_value = { .type = ecs_id(ecs_i32_t), .ptr = &index };
+    if (node->index && flecs_script_eval_expr(v, &node->index, &index_value)) {
+        flecs_script_eval_error(v, node,
+            "failed to evaluate index for assignment to '%s'", node->name);
+        result = -1;
+    } else if (flecs_script_eval_expr(v, &node->expr, &value)) {
         flecs_script_eval_error(v, node,
             "failed to evaluate expression for assignment to '%s'",
             node->name);
         result = -1;
     } else {
-        result = flecs_script_assign_value(v, node, value.ptr);
+        result = flecs_script_assign_value(v, node, index, value.ptr);
     }
 
     if (ti->hooks.dtor) {

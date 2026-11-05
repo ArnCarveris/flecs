@@ -89,6 +89,7 @@ int flecs_script_visit_free_node(
         flecs_expr_visit_free(script, ((ecs_script_while_t*)node)->expr);
         break;
     case EcsAstAssign:
+        flecs_expr_visit_free(script, ((ecs_script_assign_t*)node)->index);
         flecs_expr_visit_free(script, ((ecs_script_assign_t*)node)->expr);
         break;
     case EcsAstTry:

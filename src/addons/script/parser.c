@@ -494,6 +494,32 @@ static const char* flecs_script_parse_var(
 
                     var->type = Token(2);
 
+                    // const x: f32[] = ...  or  const x: f32[4] = ...
+                    LookAhead_1('[',
+                        Consume();
+                        Parse(
+                            case ']': {
+                                var->type_is_vector = true;
+                                break;
+                            }
+                            case EcsTokNumber: {
+                                char *end = NULL;
+                                long count = strtol(Token(4), &end, 10);
+                                if (!end || end[0] || count <= 0 ||
+                                    count > INT32_MAX)
+                                {
+                                    Error("invalid array size '%s' for %s "
+                                        "'%s', expected a positive integer",
+                                        Token(4), kind_str, var->name);
+                                }
+
+                                var->type_array_count = (int32_t)count;
+                                Parse_1(']', break;)
+                                break;
+                            }
+                        )
+                    )
+
                     goto var_type;
                 )
 
@@ -1234,6 +1260,20 @@ identifier_index: {
     )
 
     Parse_1(']',
+        // levels[i] = expr\n
+        if (parser->async_scope) {
+            LookAhead_1('=',
+                Consume();
+                ecs_script_assign_t *stmt = flecs_script_insert_assign(
+                    parser, component_first);
+                stmt->index = component_index;
+                Expr({
+                    stmt->expr = EXPR;
+                    EndOfRule;
+                })
+            )
+        }
+
         // facade[0]:
         LookAhead_1(':',
             Consume();

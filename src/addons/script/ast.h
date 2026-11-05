@@ -190,6 +190,7 @@ typedef struct ecs_script_var_node_t {
     const char *type;
     bool type_is_template;
     bool type_is_vector;
+    int32_t type_array_count;
     ecs_expr_node_t *expr;
     ecs_entity_t eval_type;
     ecs_entity_t eval_interface;
@@ -237,8 +238,12 @@ typedef struct ecs_script_while_t {
 typedef struct ecs_script_assign_t {
     ecs_script_node_t node;
     const char *name;
+    ecs_expr_node_t *index;      /* Element index for 'name[index] = expr' */
     ecs_expr_node_t *expr;
     ecs_entity_t eval_type;
+    ecs_entity_t array_type;     /* Array type of variable if index is set */
+    int32_t elem_size;
+    int32_t elem_count;
     ecs_entity_t component;
     ecs_entity_t global;
     int32_t offset;
